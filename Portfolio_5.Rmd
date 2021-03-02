@@ -1,0 +1,25 @@
+---
+title: "Portfolio_5"
+author: "Lindley Slipetz"
+date: "3/2/2021"
+output: html_document
+---
+
+This project is looking at the representation of women in Philosophy through being professors and publishing in top journals. I have two data sets. One is the breakdown of professorship by gender at the top university for Philosophy in the US. Another is a breakdown of article authorship by gender. Unfortunately, I'm going to have to leave the non-binary data from the professor data out of the analysis because the publication dataset only includes binary genders.
+
+We'll start by loading in packages.
+
+```{r packages, warning = FALSE}
+library(tidyverse)
+#install.packages("pdftools")
+library(pdftools)
+library(readxl)
+```
+
+Now, let's load the data. For our datasets, we have an excel spreadsheet and a PDF...so this should be fun.
+
+```{r load_data}
+faculty <- read_excel("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\faculty.xlsx", sheet = 1)
+publishing <- pdf_text("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\publishing.pdf")
+```
+
