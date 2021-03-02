@@ -16,10 +16,77 @@ library(pdftools)
 library(readxl)
 ```
 
-Now, let's load the data. For our datasets, we have an excel spreadsheet and a PDF...so this should be fun.
+Now, let's load the data. For our datasets, we have an excel spreadsheet and a PDF...so this should be fun. (if you're wondering what kind of monsters would save their data as a PDF, the answer is philosophers).
 
 ```{r load_data}
 faculty <- read_excel("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\faculty.xlsx", sheet = 1)
 publishing <- pdf_text("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\publishing.pdf")
 ```
 
+So, the excel data is all nice and tidy, but the PDF data...well that's going to take some work. I'm going to follow the method from [PDF to dataframe] (https://medium.com/swlh/the-adventure-of-pdf-to-data-frame-in-r-f90609035600) We'll start by separating by new lines.
+
+```{r string_split}
+publishing <- publishing %>%
+  str_split("\n")
+```
+
+There's so superfluous headers, so we're going to delete those. The first page is unique, so we'll handle its header separately.
+
+```{r headers}
+publishing[[1]] <- publishing[[1]][-1:-29]
+for(i in 1:52){
+   a <- length(publishing[[i]])
+   b <- a-1
+   publishing[[i]] <- publishing[[i]][-b:-a]
+}
+
+  
+```
+
+Eventually we're going to need this to be separated into columns. We're going to achieve that in an unintuitive way. Let's smoosh it together!
+
+```{r smoosh, warning = FALSE}
+publishing <- publishing %>%
+  str_squish()
+```
+
+Now we're going to separate the lines out.
+
+```{r unsmoosh}
+publishing <- publishing %>%
+  strsplit(split= "\\,\\s\\\"")
+```
+
+There's still some extra symbols, so let's get rid of those.
+
+```{r symbols}
+for(i in 1:length(publishing)) {
+   publishing[[i]][1] <- publishing[[i]][1] %>%
+    stringr::str_extract("(?<=c[:punct:]\\\").*")
+}
+for(i in 1:length(publishing)) {
+  for(j in 1:length(publishing[[i]])) {
+    publishing[[i]][j] <- publishing[[i]][j] %>%
+      stringr::str_extract(".*(?=\")")
+    }
+}
+for(i in 1:length(publishing)) {
+  for(j in 1:length(publishing[[i]])) {
+    publishing[[i]][j] <- publishing[[i]][j] %>%
+      str_remove("\\\\r")
+    }
+}
+
+
+```
+
+Okay, now we're going to extract the names of the journals. The way that's suggested to do it because of the structure of my dataset, so we'll need to be creative.
+
+```{r journal_names}
+for(i in 1:length(publishing)) {
+  for(j in 1:length(publishing)){
+  publishing[[i]][j] %>% str_extract(".*[:alpha:]+|\\&|\\-") %>% 
+    print()#extracts the words
+  }
+}
+```
