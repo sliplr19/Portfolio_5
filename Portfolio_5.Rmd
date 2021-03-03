@@ -14,6 +14,8 @@ library(tidyverse)
 #install.packages("pdftools")
 library(pdftools)
 library(readxl)
+#install.packages("anchors")
+library(anchors)
 ```
 
 Now, let's load the data. For our datasets, we have an excel spreadsheet and a PDF...so this should be fun. (if you're wondering what kind of monsters would save their data as a PDF, the answer is philosophers).
@@ -80,13 +82,66 @@ for(i in 1:length(publishing)) {
 
 ```
 
-Okay, now we're going to extract the names of the journals. The way that's suggested to do it because of the structure of my dataset, so we'll need to be creative.
+Okay, now we're going to extract the names of the journals. The way that's suggested to do it won't work because of the structure of my dataset, so we'll need to be creative. This took me entirely too long, but we got it!
 
-```{r journal_names}
-for(i in 1:length(publishing)) {
-  for(j in 1:length(publishing)){
-  publishing[[i]][j] %>% str_extract(".*[:alpha:]+|\\&|\\-") %>% 
-    print()#extracts the words
+```{r journal_names, warning = FALSE}
+names_ex = list() #define a list to save extracted words to
+for(i in 1:length(publishing)) { #loop through lists
+  for(j in 1:length(publishing[[i]])){ #loop through lines of lists
+  words <- publishing[[i]] %>% str_extract("^\\D+")
+  words_df <- data.frame(words) #turns into data frame for list
+  names_ex[[i]] <- words_df #save 
+  journal_names <- dplyr::bind_rows(names_ex)
   }
 }
+
+
+```
+
+You would think we'd be done here, but we're not. Some of the journal names printed on two lines (ugh!). So, now we're going to have to go in and make them one line.
+
+```{r combine_names}
+rev_journal <- journal_names %>%
+  mutate(journal = case_when(
+    journal_names$words == "Philosophical Review " ~ "Philosophical Review",
+    journal_names$words == "Journal of Philosophy " ~ "Journal of Philosophy",
+    journal_names$words == "Nous " ~ "Nous",
+    journal_names$words == "Mind " ~ "Mind",
+    journal_names$words == "Philosophy & " ~ "Philosophy & Phenomenological",
+    journal_names$words == "Philosophy & Phenomenological " ~ "Philosophy & Phenomenological",
+    journal_names$words == "Ethics " ~ "Ethics",
+    journal_names$words == "Philosophical Studies " ~ "Philosophical Studies",
+    journal_names$words ==	"Australasian Journal of Philosophy " ~  	"Australasian Journal of Philosophy",
+    journal_names$words ==	"Australasian Journal of Philosophy" ~  	"Australasian Journal of Philosophy",
+    journal_names$words == "Australasian Journal of " ~ "Australasian Journal of Philosophy",
+    journal_names$words == "Philosopher's Imprint " ~ "Philosopher's Imprint",
+    journal_names$words == "Analysis " ~ "Analysis",
+    journal_names$words == "Philosophical Quarterly " ~ "Philosophical Quarterly",
+    journal_names$words == "American Philosophical Quarterly " ~ "American Philosophical Quarterly",
+    journal_names$words == "American Philosophical " ~ "American Philosophical Quarterly",  
+    journal_names$words == "Philosophy & Public Affairs " ~ "Philosophy & Public Affairs",
+    journal_names$words == "Philosophy of Science " ~ "Philosophy of Science",
+    journal_names$words == " Philosophy of Science" ~ "Philosophy of Science",
+    journal_names$words == "British Journal for the Philosophy " ~
+      "British Journal for the Philosophy",
+    journal_names$words ==  "Synthese " ~ "Synthese",
+    journal_names$words == "Proceedings of the Aristotelian" ~ "Proceedings of the Aristotelian",
+    journal_names$words == "Proceedings of the " ~ "Proceedings of the Aristotelian",
+    journal_names$words == "Erkenntnis " ~ "Erkenntnis",
+    journal_names$words == "Canadian Journal of " ~ "Canadian Journal of Philosophy",
+    journal_names$words == "Canadian Journal of Philosophy" ~ "Canadian Journal of Philosophy",
+    journal_names$words == "Journal of the History of Philosophy" ~ "Journal of the History of Philosophy",
+    journal_names$words == "Journal of the History of " ~ "Journal of the History of Philosophy",
+    journal_names$words == "Journal of Philosophical " ~ "Journal of Philosophical Logic",
+    journal_names$words == "Journal of Philosophical Logic" ~ "Journal of Philosophical Logic",
+    journal_names$words == "Mind & Language " ~ "Mind & Language",
+    journal_names$words == "Pacific Philosophical " ~ "Pacific Philosophical Quarterly",
+    journal_names$words == "Pacific Philosophical Quarterly" ~ "Pacific Philosophical Quarterly",
+    journal_names$words == "European Journal of " ~ "European Journal of Philosophy",
+    journal_names$words == "European Journal of Philosophy" ~ "European Journal of Philosophy",
+   journal_names$words == "British Journal for the " ~ "British Journal for the History of Philosophy",
+   journal_names$words == "British Journal for the History" ~ "British Journal for the History of Philosophy"
+    
+  ))
+rev_journal <- na.omit(rev_journal)
 ```
