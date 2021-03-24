@@ -5,24 +5,26 @@ date: "3/2/2021"
 output: html_document
 ---
 
-This project is looking at the representation of women in Philosophy through being professors and publishing in top journals. I have two data sets. One is the breakdown of professorship by gender at the top university for Philosophy in the US. Another is a breakdown of article authorship by gender. Unfortunately, I'm going to have to leave the non-binary data from the professor data out of the analysis because the publication dataset only includes binary genders.
+This project is looking at the representation of women in Philosophy through being professors and publishing in top journals. I have two data sets. One is the breakdown of professorship by gender at the top universities for Philosophy in the US. Another is a breakdown of article authorship by gender. Unfortunately, I'm going to have to leave the non-binary data from the professor data out of the analysis because the publication dataset only includes binary genders.
 
 We'll start by loading in packages.
 
-```{r packages, warning = FALSE}
+```{r packages, message = FALSE, warning = FALSE}
 library(tidyverse)
 #install.packages("pdftools")
 library(pdftools)
 library(readxl)
 #install.packages("anchors")
 library(anchors)
+#install.packages("textclean")
+library(textclean)
 ```
 
 Now, let's load the data. For our datasets, we have an excel spreadsheet and a PDF...so this should be fun. (if you're wondering what kind of monsters would save their data as a PDF, the answer is philosophers).
 
 ```{r load_data}
-faculty <- read_excel("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\faculty.xlsx", sheet = 1)
-publishing <- pdf_text("G:\\My Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\publishing.pdf")
+faculty <- read_excel("C:\\Users\\Owner\\Google Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\faculty.xlsx", sheet = 1)
+publishing <- pdf_text("C:\\Users\\Owner\\Google Drive\\DataScience\\Portfolio_5\\Portfolio_5\\data\\publishing.pdf")
 ```
 
 So, the excel data is all nice and tidy, but the PDF data...well that's going to take some work. I'm going to follow the method from [PDF to dataframe] (https://medium.com/swlh/the-adventure-of-pdf-to-data-frame-in-r-f90609035600) We'll start by separating by new lines.
@@ -32,7 +34,7 @@ publishing <- publishing %>%
   str_split("\n")
 ```
 
-There's so superfluous headers, so we're going to delete those. The first page is unique, so we'll handle its header separately.
+There's some superfluous headers and footers, so we're going to delete those. The first page is unique, so we'll handle its header separately.
 
 ```{r headers}
 publishing[[1]] <- publishing[[1]][-1:-29]
@@ -55,7 +57,7 @@ publishing <- publishing %>%
 Now we're going to separate the lines out.
 
 ```{r unsmoosh}
-publishing <- publishing %>%
+publishing <- unlist(publishing) %>%
   strsplit(split= "\\,\\s\\\"")
 ```
 
@@ -88,14 +90,15 @@ Okay, now we're going to extract the names of the journals. The way that's sugge
 names_ex = list() #define a list to save extracted words to
 for(i in 1:length(publishing)) { #loop through lists
   for(j in 1:length(publishing[[i]])){ #loop through lines of lists
-  words <- publishing[[i]] %>% str_extract("^\\D+")
+  words <- publishing[[i]] %>% str_extract("\\D+")
   words_df <- data.frame(words) #turns into data frame for list
   names_ex[[i]] <- words_df #save 
   journal_names <- dplyr::bind_rows(names_ex)
   }
 }
+journal_names <- as.data.frame(journal_names[!apply(is.na(journal_names) | journal_names == " ", 1, all),])
 
-
+colnames(journal_names) <- "words"
 ```
 
 You would think we'd be done here, but we're not. Some of the journal names printed on two lines (ugh!). So, now we're going to have to go in and make them one line.
@@ -145,3 +148,75 @@ rev_journal <- journal_names %>%
   ))
 rev_journal <- na.omit(rev_journal)
 ```
+
+Okay, now time to handle the digit data.
+
+```{r digits, warning = FALSE}
+numbers_ex = list()
+k=1
+for(i in 1:length(publishing)) {
+  for(j in 1:length(publishing[[i]])){
+    numbers <- publishing[[i]][j] %>% str_extract("[:digit:]+.*")
+    numbers_df <- data.frame(numbers)
+    while(k <= 20000) {
+    numbers_ex[[k]]<- numbers_df
+    k <- k+1
+    break
+    }
+  }
+  NH_numbers <- dplyr::bind_rows(numbers_ex)
+}
+```
+Guess what?! It's a mess! Well start by separating the numbers.
+
+```{r digit_sep, warning = FALSE}
+NH_numbers %>% 
+  separate(numbers, c("A","B","C","D","E","F","G","H","I","J"), sep="\\s") -> NH_numbers
+```
+
+
+
+
+There are a bunch of random words which specify specific issues. We don't need those, so we'll delete them.
+
+```{r word_delete}
+for(i in 1:nrow(NH_numbers))
+for(j in 1:ncol(NH_numbers)) {
+    NH_numbers[i,j] <- NH_numbers[i,j] %>%
+      str_remove("^\\D+")
+    }
+
+```
+NH_numbers <- as.data.frame(na.omit(NH_numbers[,1]), stringsAsFactors = FALSE)
+
+Now we need to get the data in the same row. I'm going to go an extreme route because I can't think of any other way to do it. I'm going to start rebuilding the numerical data frame by making a column of 4 digit numbers.
+
+```{r 4_digit}
+
+new_numeric <- data.frame("year", stringsAsFactors = FALSE)
+for(i in 1:nrow(NH_numbers)){
+  if(is.na(NH_numbers[i,1]) == FALSE){
+  if(str_detect(NH_numbers[i,1], "^[0-9]{4}$") == TRUE){
+    new_numbers <- str_extract(NH_numbers[i,1], "^[0-9]{4}$")
+    new_numeric[nrow(new_numeric) + 1, ] <- new_numbers
+}
+  }
+    }
+```
+
+Okay, now we have all of the years. Let's clean up this dataframe. (not sure if I need this)
+
+```{r num_NA}
+new_numeric <- na.omit(new_numeric)
+new_numeric <- new_numeric[-1,]
+```
+ 
+ Well, now we have more journal names than numeric data...so that's great! I'm pretty confident about the number of numeric values, so there seems to be 64 extra journal names. I'm going to go back to how the journal names were created and see if there's anything wrong with the code.
+ 
+ I'm going to try something here. In the console, I'm counting how many occurences of each journal there are in the original document with "sapply(gregexpr("\\b...\\b", publishing), function(x) sum(x > 0))". I'm also looking for the number of 4 digit numbers (the years).
+ 
+Now, I'm just going to look at the faculty dataset. We'll be looking at the representation of women in philosophy faculty positions. As a warm up, we're just going to look at Joey's department, University of Washington. Keep in mind that this data is out of data and they've hired another woman since then.
+ 
+Okay, I went back and fiddled with the code. We have 3709 journals and 3646 years...so we're getting closer! 
+ 
+I basically manually counted the journal names and found that there are 3682. I've tried everything I can think of: count from code, count in console with code, and manual count. No matter what I do I can't get them to agree. I've been at this for a while, and I think it's time to throw in the towel. We'll just count this as my failed attempt at reading in a PDF. It was a useful exercise in that I think with a better dataset I'm now equipped to successfully read PDFs. 
