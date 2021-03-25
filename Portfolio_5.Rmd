@@ -214,9 +214,186 @@ new_numeric <- new_numeric[-1,]
  Well, now we have more journal names than numeric data...so that's great! I'm pretty confident about the number of numeric values, so there seems to be 64 extra journal names. I'm going to go back to how the journal names were created and see if there's anything wrong with the code.
  
  I'm going to try something here. In the console, I'm counting how many occurences of each journal there are in the original document with "sapply(gregexpr("\\b...\\b", publishing), function(x) sum(x > 0))". I'm also looking for the number of 4 digit numbers (the years).
- 
-Now, I'm just going to look at the faculty dataset. We'll be looking at the representation of women in philosophy faculty positions. As a warm up, we're just going to look at Joey's department, University of Washington. Keep in mind that this data is out of data and they've hired another woman since then.
- 
+
 Okay, I went back and fiddled with the code. We have 3709 journals and 3646 years...so we're getting closer! 
  
 I basically manually counted the journal names and found that there are 3682. I've tried everything I can think of: count from code, count in console with code, and manual count. No matter what I do I can't get them to agree. I've been at this for a while, and I think it's time to throw in the towel. We'll just count this as my failed attempt at reading in a PDF. It was a useful exercise in that I think with a better dataset I'm now equipped to successfully read PDFs. 
+
+
+ 
+Now, I'm just going to look at the faculty dataset. We'll be looking at the representation of women in philosophy faculty positions. As a warm up, we're just going to look at Joey's department, University of Washington. Keep in mind that this data is out of data and they've hired another woman since then. First I'm going to change variable names.
+
+```{r all_subset}
+
+faculty <- faculty %>%
+  subset(select = c("School", "Total % Women 2019", "% TT Women 2019", "% Full Women 2019", "% Assoc Women  2019", "% Assist Women 2019", "%  Emer  Women  2019")) %>% 
+  rename(
+    Total = "Total % Women 2019",
+    TT = "% TT Women 2019",
+    Full = "% Full Women 2019",
+    Associate = "% Assoc Women  2019",
+    Assistant = "% Assist Women 2019", 
+    Emeritus = "%  Emer  Women  2019"
+    )
+
+```
+
+```{r UWa_graph}
+
+UWa <- faculty %>%
+  subset(School == "University of Washington", select = c("Total", "TT", "Full", "Associate", "Assistant", "Emeritus"))
+UWa %>%
+  gather("Faculty", "Value") %>%
+  ggplot(aes(Faculty, Value)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Percentage", x = "Faculty Type", title = "Women Philosophy Faculty at University of Washington")
+
+```
+
+So, I think UW is an anomaly in Philosophy (and I think that's well known in the field). Notice their percentage of Associate Professors who are women is almost 50%. Given that only about 30% of Philosophy PhDs are women, that's a remarkable number. They also have a high percentage of women who are full profesors. Their total number of women is more in line with the degree-granting percentage. Overall, they show a good representation of women.
+
+Now, I want to look at a school that does Philosophy of Science. As a former Philosopher of Science, I can tell you that the representation of women in Philosophy of Science is even worse than Philosophy generally (and Philosophy generally has a problem with gender representation). So, let's look at Carnegie Mellon.
+
+```{r CM_graph}
+
+CM <- faculty %>%
+  subset(School == "Carnegie-Mellon University", select = c("Total", "TT", "Full", "Associate", "Assistant", "Emeritus"))
+CM %>%
+  gather("Faculty", "Value") %>%
+  ggplot(aes(Faculty, Value)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Percentage", x = "Faculty Type", title = "Women Philosophy Faculty at Carnegie Mellon")
+
+```
+
+So, yeah...Carnegie Mellon doesn't look too good for the representation of women. Their total percentage is around 13% as opposed to UW's 35+%. Their highest category is Assistant Professors, which I guess tells us they're trying to do something about. There seem to be no women who are Associate Professors or Emeritus, which is concerning. Overall, this seems representative of Philosophy of Science.
+
+Now, for fun, let's look at one of my old departments: University of Wisconsin (I can't look at UCI because my department was actually separate from the Philosophy department, so there's no separate data for that). 
+
+```{r UW_graph}
+
+UW <- faculty %>%
+  subset(School == "University of Wisconsin, Madison", select = c("Total", "TT", "Full", "Associate", "Assistant", "Emeritus"))
+UW %>%
+  gather("Faculty", "Value") %>%
+  ggplot(aes(Faculty, Value)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Percentage", x = "Faculty Type", title = "Women Philosophy Faculty at UW-Madison")
+
+
+```
+
+Like Carnegie Mellon, UW has a high number of Assistant Professors, so at least they're moving in the right direction. There are very few women who are full professors (actually there is only one. Her name is Paula Gottlieb, and she's great!).The total number of women faculty is quite low, under 20%. But at least we're better than Carnegie Mellon!
+
+
+
+I have too many data points to do one bar graph. So, I'm going to split them by rank
+
+```{r group}
+faculty$rank <- 1:nrow(faculty) 
+faculty <- faculty %>%
+  mutate(rank_group = case_when(
+    rank < 21 ~ "1-20",
+    20 < rank & rank < 41 ~ "20-40",
+    40 < rank & rank < 61 ~ "41-60",
+    60 < rank & rank < 81 ~ "61 - 80",
+    80 < rank & rank < 100 ~ "81 -100"
+  ))
+
+```
+
+I tried to get a graph of everyone with facet_wrap, but it was still a total mess. I'm going to limit my analysis to the top 20 and bottom 18.
+
+Here's an attempt at a graph. CUNY's name is too long, so I need to fix it
+
+```{r Total}
+faculty %>%
+  subset(rank_group == "1-20", select = c(School, Total)) %>%
+  ggplot(aes(x = reorder(School, -Total), y = Total)) +
+  geom_bar(stat="identity",fill='black') +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+
+
+```
+
+```{r CUNY}
+faculty$School[faculty$School == "City University of New York Graduate Center-LIST AFFILIATED FACULTY FOR CUNY"] <- "CUNY"
+```
+
+Okay, let's try the graph again.
+
+```{r Total_2}
+faculty %>%
+  subset(rank_group == "1-20", select = c(School, Total)) %>%
+  ggplot(aes(x = reorder(School, -Total), y = Total)) +
+  geom_bar(stat="identity",fill='black') +
+  theme(axis.text.x = element_text(color = "grey20", size = 5, angle = 90, hjust = .5, vjust = .5, face = "plain"),
+        axis.text.y = element_text(color = "grey20", size = 12, angle = 0, hjust = 1, vjust = 0, face = "plain"),  
+        axis.title.x = element_text(color = "grey20", size = 12, angle = 0, hjust = .5, vjust = 0, face = "plain"),
+        axis.title.y = element_text(color = "grey20", size = 12, angle = 90, hjust = .5, vjust = .5, face = "plain"),
+        plot.title = element_text(size=10)) +
+  labs(x = "Top 20 schools", y = "Percentage", title = "Total % of Women Faculty in Top 20 Philosophy departments")
+
+```
+Columbia is by far the leader in hiring women. University of Texas-Austin needs some work (which is not surprising given the reputation the department has). There's a cluster of universities around 30% and another cluster around 20%. I'm kind of surprised about Rutgers because it's the number 2 program in the country (3 in the world). I would have hoped they'd do better.
+
+Let's look at breakdowns of the best department and the worst department in the top 20.
+
+
+```{r top_compare}
+
+top_compare <- faculty %>%
+  subset(School == "Columbia University (incl. Barnard)" | School == "University of Texas, Austin", select = c("School", "TT", "Full", "Associate", "Assistant", "Emeritus"))
+top_compare %>%
+  gather("Faculty", "Value", -School) %>%
+  ggplot(aes(Faculty, Value)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~School) +
+  labs(x = "Faculty Type", y = "Percentage", title = "Breakdown of best and worst top 20 departments")
+
+```
+
+Neither school has women who are Emeritus, so it shows they don't have a history of hiring women. Columbia has super impressive numbers of Assistant and Associate Professors: they're hiring majority women what?! UT-Austin did fine with Associate Professors, but they have some serious issues with Assistant and Full professors. This is further shown by the low level of TT woman faculty. Let's look at the bottom schools to see how they fair.
+
+```{r Total_bot}
+faculty %>%
+  subset(rank_group == "81 -100", select = c(School, Total)) %>%
+  ggplot(aes(x = reorder(School, -Total), y = Total)) +
+  geom_bar(stat="identity",fill='black') +
+  theme(axis.text.x = element_text(color = "grey20", size = 5, angle = 90, hjust = .5, vjust = .5, face = "plain"),
+        axis.text.y = element_text(color = "grey20", size = 12, angle = 0, hjust = 1, vjust = 0, face = "plain"),  
+        axis.title.x = element_text(color = "grey20", size = 12, angle = 0, hjust = .5, vjust = 0, face = "plain"),
+        axis.title.y = element_text(color = "grey20", size = 12, angle = 90, hjust = .5, vjust = .5, face = "plain"),
+        plot.title = element_text(size=10)) +
+  labs(x = "Bottom 18 schools", y = "Percentage", title = "Total % of Women Faculty in Bottom 18 Philosophy departments")
+
+```
+
+We can see that University of Oregon is a top school, almost tied with University of Kentucky. U of O makes sense because it's a Feminist Philosophy heavy department (I wish sub-specialities weren't gender-specific, but they are). It looks comparable to Columbia. UIUC looks comparable to UT-Austin. Let's look at the breakdown.
+
+```{r bot_compare}
+
+bottom_compare <- faculty %>%
+  subset(School == "University of Oregon" | School == "University of Illinois, Champaign-Urbana", select = c("School", "TT", "Full", "Associate", "Assistant", "Emeritus"))
+bottom_compare %>%
+  gather("Faculty", "Value", -School) %>%
+  ggplot(aes(Faculty, Value)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~School) +
+  labs(x = "Faculty Type", y = "Percentage", title = "Breakdown of best and worst bottom 18 departments")
+
+```
+
+Wow, so about UIUC: they have no Assistant, Emeritus, or Full woman faculty. I wish I could say that's why they're ranked so low, but Philosophers aren't really bothered by that kind of thing. Now check out UofO's Full Professors! That is seriously unbelievable. Their tenure track is an even split. Let's do one last thing. Let's rank the programs by percentage of TT faculty.
+
+```{r TT}
+faculty %>%
+  arrange(desc(TT))
+```
+
+There are 3 schools with a 50/50 split: University of Iowa, University of Oregon, and University of Utah. That's 3% of top 98 programs having an equal number of men and women. I guess that's not surprising given the stat I gave earlier about only 30% of Philosophy PhDs being women. Still, I think there's an obvious problem going on.
